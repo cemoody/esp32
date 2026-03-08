@@ -193,13 +193,15 @@ fn main() -> anyhow::Result<()> {
                     log::error!("[MIC] Read error: {}", e);
                 }
             }
-            thread::sleep(Duration::from_millis(20));
+            // No sleep — let I2S read() block naturally to maintain continuous audio stream
         }
     })?;
 
-    // ─── Speaker thread ────────────────────────────────
+    // ─── Speaker thread (disabled to test mic timing) ──
     let pb = playback_buffer.clone();
-    thread::Builder::new().stack_size(8192).spawn(move || {
+    log::info!("[SPK] DISABLED for testing");
+    let _i2s_tx_ptr = i2s_tx_ptr; // suppress unused
+    if false { thread::Builder::new().stack_size(8192).spawn(move || {
         log::info!("[SPK] Thread started");
         let i2s_tx: &mut esp_idf_hal::i2s::I2sDriverRef<esp_idf_hal::i2s::I2sTx> = unsafe {
             &mut *(i2s_tx_ptr as *mut esp_idf_hal::i2s::I2sDriverRef<esp_idf_hal::i2s::I2sTx>)
@@ -226,7 +228,7 @@ fn main() -> anyhow::Result<()> {
             }
             thread::sleep(Duration::from_millis(5));
         }
-    })?;
+    })?; }
 
     // ─── Button thread ─────────────────────────────────
     let i2c_btn = i2c.clone();
