@@ -21,3 +21,4 @@ harry_potter_doll/tests/mocks/ArduinoJson.hpp
 aidoll_v2/.embuild/
 aidoll_v2/target/
 aidoll_v2/Cargo.lock
+aidoll_v2/src/secrets.rs

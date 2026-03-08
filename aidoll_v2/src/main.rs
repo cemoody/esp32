@@ -11,6 +11,8 @@ mod llm;
 mod pipeline;
 mod prompt;
 mod ring_buffer;
+#[cfg(feature = "esp32")]
+mod secrets;
 mod stt;
 mod tts;
 
@@ -97,9 +99,9 @@ fn main() -> anyhow::Result<()> {
     let playback_buffer = RingBuffer::new(16000 * 2 * 30); // 30s
 
     // ─── WiFi ──────────────────────────────────────────
-    let wifi_ssid = std::env::var("WIFI_SSID").unwrap_or_else(|_| "woot".to_string());
-    let wifi_pass = std::env::var("WIFI_PASSWORD").unwrap_or_else(|_| "moonlight".to_string());
-    let _wifi = hw::init_wifi(peripherals.modem, &wifi_ssid, &wifi_pass)?;
+    let wifi_ssid = secrets::WIFI_SSID;
+    let wifi_pass = secrets::WIFI_PASSWORD;
+    let _wifi = hw::init_wifi(peripherals.modem, wifi_ssid, wifi_pass)?;
 
     // ─── Pipeline state ────────────────────────────────
     let pipeline = Arc::new(Mutex::new(Pipeline::new()));
@@ -109,9 +111,8 @@ fn main() -> anyhow::Result<()> {
     // Load system prompt
     let system_prompt = include_str!("../../harry_potter_doll/laura_prompt.h");
 
-    // API keys from env
-    let dg_key = std::env::var("DEEPGRAM_API_KEY").unwrap_or_default();
-    let groq_key = std::env::var("GROQ_API_KEY").unwrap_or_default();
+    let dg_key = secrets::DEEPGRAM_API_KEY;
+    let groq_key = secrets::GROQ_API_KEY;
 
     // ─── Deepgram STT ──────────────────────────────────
     let (stt_tx, stt_rx) = mpsc::channel();

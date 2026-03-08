@@ -26,14 +26,26 @@ pub mod hw {
         let config = Configuration::Client(ClientConfiguration {
             ssid: ssid.try_into().unwrap(),
             password: password.try_into().unwrap(),
-            auth_method: AuthMethod::WPA2Personal,
+            auth_method: AuthMethod::None, // Auto-detect
             ..Default::default()
         });
 
         wifi.set_configuration(&config)?;
         wifi.start()?;
         log::info!("[WIFI] Connecting to {}...", ssid);
-        wifi.connect()?;
+
+        for attempt in 1..=5 {
+            match wifi.connect() {
+                Ok(_) => break,
+                Err(e) => {
+                    log::warn!("[WIFI] Attempt {} failed: {}", attempt, e);
+                    if attempt == 5 {
+                        anyhow::bail!("WiFi connection failed after 5 attempts");
+                    }
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                }
+            }
+        }
         wifi.wait_netif_up()?;
         log::info!("[WIFI] Connected!");
         Ok(wifi)
