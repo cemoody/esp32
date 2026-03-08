@@ -2,7 +2,7 @@ CXX = c++
 CXXFLAGS = -std=c++17 -Wall -Wno-format -Wno-unused-function -I./mocks -I..
 BUILDDIR = build
 
-TESTS = test_audio_buffer test_groq_sse test_elevenlabs test_pipeline test_conversation test_integration
+TESTS = test_audio_buffer test_groq_sse test_elevenlabs test_pipeline test_conversation test_integration test_streaming_tts test_interrupts test_connection_pool
 
 # Source files to watch for changes
 WATCH_SRCS = $(wildcard *.cpp) $(wildcard ../*.cpp) $(wildcard ../*.h) $(wildcard ../config.h) $(wildcard mocks/*.h)
@@ -28,6 +28,15 @@ $(BUILDDIR)/test_conversation: test_conversation.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
 $(BUILDDIR)/test_integration: test_integration.cpp ../audio_buffer.cpp ../groq.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $^
+
+$(BUILDDIR)/test_streaming_tts: test_streaming_tts.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $^
+
+$(BUILDDIR)/test_interrupts: test_interrupts.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $^
+
+$(BUILDDIR)/test_connection_pool: test_connection_pool.cpp
 	$(CXX) $(CXXFLAGS) -o $@ $^
 
 test: all

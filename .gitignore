@@ -5,9 +5,16 @@
 **/*.bin
 **/*.map
 
+# Secrets (API keys, WiFi credentials)
+**/secrets.h
+
 # OS files
 .DS_Store
 
 # IDE
 .vscode/
 *.swp
+# ArduinoJson symlinks (local)
+harry_potter_doll/tests/mocks/ArduinoJson
+harry_potter_doll/tests/mocks/ArduinoJson.h
+harry_potter_doll/tests/mocks/ArduinoJson.hpp

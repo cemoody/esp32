@@ -61,8 +61,8 @@ void test_build_request_system_prompt() {
   GroqClient groq;
 
   String body = groq.buildRequestBody("test", nullptr, 0);
-  assert(body.contains("Harry Potter"));
-  assert(body.contains("Hogwarts"));
+  assert(body.contains("Laura Ingalls"));
+  assert(body.contains("prairie"));
   PASS();
 }
 

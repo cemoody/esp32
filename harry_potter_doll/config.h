@@ -1,36 +1,25 @@
 #pragma once
 
-// ─── WiFi ───────────────────────────────────────────────
-#define WIFI_SSID     "REDACTED"
-#define WIFI_PASSWORD "REDACTED"
+#include "secrets.h"  // WIFI_SSID, WIFI_PASSWORD, DEEPGRAM_API_KEY, GROQ_API_KEY
 
 // ─── Deepgram (Streaming STT) ──────────────────────────
-#define DEEPGRAM_API_KEY "REDACTED"
 #define DEEPGRAM_HOST    "api.deepgram.com"
 #define DEEPGRAM_PATH    "/v1/listen?encoding=linear16&sample_rate=16000&channels=1&model=nova-3&punctuate=true&endpointing=300"
 
 // ─── Groq (Streaming LLM) ──────────────────────────────
-#define GROQ_API_KEY  "REDACTED"
 #define GROQ_HOST     "api.groq.com"
-#define GROQ_MODEL    "llama-3.3-70b-versatile"
-#define GROQ_MAX_TOKENS 150
+#define GROQ_MODEL    "meta-llama/llama-4-scout-17b-16e-instruct"
+#define GROQ_MAX_TOKENS 80
 
-// ─── ElevenLabs (Streaming TTS) ────────────────────────
-#define ELEVENLABS_API_KEY "REDACTED"
-#define ELEVENLABS_VOICE_ID "6jqGBPwwAbehMvDK7PmB"  // "harry potted" — custom Harry Potter voice
-#define ELEVENLABS_MODEL    "eleven_turbo_v2_5"
-#define ELEVENLABS_HOST     "api.elevenlabs.io"
+// ─── TTS (Deepgram Aura via WebSocket) ───────────────
+#define TTS_MODEL "aura-2-luna-en"
+// Uses DEEPGRAM_API_KEY for auth (same key as STT)
 
 // ─── Character Persona ─────────────────────────────────
-#define CHARACTER_NAME "Harry Potter"
-#define SYSTEM_PROMPT \
-  "You are Harry Potter, an 11-year-old wizard who just started at Hogwarts School of Witchcraft and Wizardry. " \
-  "You speak like a British kid — friendly, curious, and sometimes a bit nervous. " \
-  "You love talking about Quidditch, your friends Ron and Hermione, your owl Hedwig, and your adventures at Hogwarts. " \
-  "You're amazed by magic since you grew up with the boring Dursleys. " \
-  "Keep your responses short — 1 to 3 sentences, like a real kid talking. " \
-  "Use simple words. Never break character. If someone asks something you wouldn't know as Harry, " \
-  "make up a fun magical answer that fits the wizarding world."
+// Auto-generated from laura.md — run ./generate_prompt.sh to update
+#include "laura_prompt.h"
+#define CHARACTER_NAME "Laura Ingalls"
+#define SYSTEM_PROMPT LAURA_PROMPT
 
 // ─── Conversation History ───────────────────────────────
 #define MAX_CONVERSATION_TURNS 10  // Keep last N turns for context
@@ -68,3 +57,4 @@
 #define PLAYBACK_BUFFER_SIZE (16000 * 2 * 30)  // 30 seconds of 16kHz 16-bit mono (960KB, fits in PSRAM)
 #define MIC_CHUNK_SIZE       512          // Bytes per mic read (256 samples)
 #define MIC_SEND_INTERVAL_MS 20           // Send mic data every 20ms
+#define INTERRUPT_PEAK_THRESHOLD 5000     // Mic peak above this triggers interrupt during playback

@@ -20,6 +20,9 @@ static volatile PipelineState pipelineState = PIPE_IDLE;
 static volatile bool interruptRequested = false;
 static volatile bool ttsDone = false;
 
+// Sentence buffer for streaming TTS in sentence-sized chunks
+static String sentenceBuffer;
+
 // Audio playback buffer
 static AudioBuffer playbackBuffer;
 
@@ -88,6 +91,7 @@ static void onTranscript(const char* transcript) {
     String userMsg = trimmed;
     currentTranscript = "";
     currentResponse = "";
+    sentenceBuffer = "";
 
     // Connect ElevenLabs for streaming TTS
     if (!elevenlabs.isConnected()) {
@@ -138,7 +142,7 @@ static void onGroqDone() {
 
   Serial.printf("\n[PIPE] LLM done, response: %s\n", currentResponse.c_str());
 
-  // Send full response to ElevenLabs at once
+  // Send full response to ElevenLabs at once, then flush
   if (elevenlabs.isConnected() && currentResponse.length() > 0) {
     ttsDone = false;
     elevenlabs.sendText(currentResponse.c_str());
@@ -184,8 +188,7 @@ static void micTask(void* param) {
   int16_t peakLevel = 0;
 
   while (true) {
-    // Mute mic while speaking to prevent feedback loop
-    if (!deepgram.isConnected() || pipelineState == PIPE_SPEAKING) {
+    if (!deepgram.isConnected()) {
       vTaskDelay(pdMS_TO_TICKS(100));
       continue;
     }
@@ -217,6 +220,14 @@ static void micTask(void* param) {
       peakLevel = 0;
     }
 
+    // During playback, only send audio if peak is above interrupt threshold
+    // This prevents speaker bleed from triggering Deepgram, but allows
+    // loud human speech to interrupt
+    if (pipelineState == PIPE_SPEAKING && peakLevel <= INTERRUPT_PEAK_THRESHOLD) {
+      vTaskDelay(pdMS_TO_TICKS(MIC_SEND_INTERVAL_MS));
+      continue;
+    }
+
     // Send mono audio to Deepgram
     deepgram.sendAudio((uint8_t*)monoBuffer, monoSamples * 2);
 
@@ -235,6 +246,12 @@ static void pipelineTask(void* param) {
     // Poll ElevenLabs WebSocket for audio chunks
     elevenlabs.poll();
 
+    // If EL disconnected unexpectedly during speaking, treat as TTS done
+    if (pipelineState == PIPE_SPEAKING && !elevenlabs.isConnected() && !ttsDone) {
+      Serial.println("[PIPE] EL disconnected, forcing ttsDone");
+      ttsDone = true;
+    }
+
     // Check if playback is done and we should go idle
     // Wait for TTS to finish AND playback buffer to drain
     if (pipelineState == PIPE_SPEAKING &&
@@ -245,8 +262,7 @@ static void pipelineTask(void* param) {
       pipelineState = PIPE_IDLE;
       rgb_set_state(STATE_IDLE);
 
-      // Disconnect ElevenLabs to save resources
-      elevenlabs.disconnect();
+      // Keep ElevenLabs connected for faster next turn
     }
 
     vTaskDelay(pdMS_TO_TICKS(5));
