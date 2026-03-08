@@ -156,11 +156,12 @@ pub mod hw {
         i2c.write(ES7210_ADDR, &[0x11, 0x60], 1000)?; // 16-bit I2S
         i2c.write(ES7210_ADDR, &[0x12, 0x02], 1000)?; // TDM enable
 
-        // Clock: 16kHz with 256x MCLK
+        // Clock: 16kHz with 256x MCLK (4.096MHz)
+        // From coefficient table: adc_div=1, dll=1, doubler=1, osr=0x20, lrck_h=1, lrck_l=0
         i2c.write(ES7210_ADDR, &[0x07, 0x20], 1000)?; // OSR
-        i2c.write(ES7210_ADDR, &[0x02, 0x01], 1000)?; // Main clock
-        i2c.write(ES7210_ADDR, &[0x04, 0x01], 1000)?; // LRCK high
-        i2c.write(ES7210_ADDR, &[0x05, 0x00], 1000)?; // LRCK low
+        i2c.write(ES7210_ADDR, &[0x02, 0xC1], 1000)?; // Main clock: adc_div=1 | doubler<<6 | dll<<7
+        i2c.write(ES7210_ADDR, &[0x04, 0x01], 1000)?; // LRCK divider high
+        i2c.write(ES7210_ADDR, &[0x05, 0x00], 1000)?; // LRCK divider low
 
         // Analog power
         i2c.write(ES7210_ADDR, &[0x40, 0xC3], 1000)?;

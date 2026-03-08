@@ -135,21 +135,27 @@ fn main() -> anyhow::Result<()> {
     }
     log::info!("[INIT] Ready! Start talking.");
 
-    // Share I2S driver between mic and speaker threads via Mutex
-    let i2s = Arc::new(Mutex::new(i2s));
+    // Split I2S into RX (mic) and TX (speaker)
+    // Leak the driver so split refs get 'static lifetime
+    let i2s_leaked: &'static mut _ = Box::leak(Box::new(i2s));
+    let (mut i2s_rx_ref, mut i2s_tx_ref) = i2s_leaked.split();
+    // Wrap in raw pointer to bypass !Send (safe: each thread owns its half exclusively)
+    let i2s_rx_ptr = &mut i2s_rx_ref as *mut _ as usize;
+    let i2s_tx_ptr = &mut i2s_tx_ref as *mut _ as usize;
 
     // ─── Mic thread ────────────────────────────────────
     let pipeline_mic = pipeline.clone();
-    let i2s_mic = i2s.clone();
     thread::Builder::new().stack_size(8192).spawn(move || {
+        log::info!("[MIC] Thread started");
+        let i2s_rx: &mut esp_idf_hal::i2s::I2sDriverRef<esp_idf_hal::i2s::I2sRx> = unsafe {
+            &mut *(i2s_rx_ptr as *mut esp_idf_hal::i2s::I2sDriverRef<esp_idf_hal::i2s::I2sRx>)
+        };
         let mut stereo_buf = [0u8; 1024];
+        let mut count: u32 = 0;
+        let mut peak_max: i16 = 0;
         loop {
             let state = pipeline_mic.lock().unwrap().state();
-            // Read from I2S mic
-            let read_result = {
-                let mut drv = i2s_mic.lock().unwrap();
-                drv.read(&mut stereo_buf, 5000)
-            };
+            let read_result = i2s_rx.read(&mut stereo_buf, 5000);
             match read_result {
                 Ok(n) if n > 0 => {
                     let stereo: &[i16] = unsafe {
@@ -160,6 +166,13 @@ fn main() -> anyhow::Result<()> {
                     };
                     let mono = stereo_to_mono(stereo);
                     let peak = peak_amplitude(&mono);
+                    if peak > peak_max { peak_max = peak; }
+
+                    count += 1;
+                    if count % 50 == 0 {
+                        log::info!("[MIC] peak={} sent={} bytes={}", peak_max, count, mono.len() * 2);
+                        peak_max = 0;
+                    }
 
                     if state == pipeline::PipelineState::Speaking && peak <= 5000 {
                         continue; // filter speaker bleed
@@ -173,7 +186,12 @@ fn main() -> anyhow::Result<()> {
                     };
                     let _ = deepgram_stt::client::send_audio(&mut stt_client, mono_bytes);
                 }
-                _ => {}
+                Ok(_) => {
+                    log::warn!("[MIC] Read 0 bytes");
+                }
+                Err(e) => {
+                    log::error!("[MIC] Read error: {}", e);
+                }
             }
             thread::sleep(Duration::from_millis(20));
         }
@@ -181,8 +199,11 @@ fn main() -> anyhow::Result<()> {
 
     // ─── Speaker thread ────────────────────────────────
     let pb = playback_buffer.clone();
-    let i2s_spk = i2s.clone();
-    thread::Builder::new().stack_size(4096).spawn(move || {
+    thread::Builder::new().stack_size(8192).spawn(move || {
+        log::info!("[SPK] Thread started");
+        let i2s_tx: &mut esp_idf_hal::i2s::I2sDriverRef<esp_idf_hal::i2s::I2sTx> = unsafe {
+            &mut *(i2s_tx_ptr as *mut esp_idf_hal::i2s::I2sDriverRef<esp_idf_hal::i2s::I2sTx>)
+        };
         let silence = [0u8; 512];
         let mut chunk = [0u8; 512];
         loop {
@@ -199,11 +220,9 @@ fn main() -> anyhow::Result<()> {
                         stereo.len() * 2,
                     )
                 };
-                let mut drv = i2s_spk.lock().unwrap();
-                let _ = drv.write_all(stereo_bytes, 5000);
+                let _ = i2s_tx.write_all(stereo_bytes, 5000);
             } else {
-                let mut drv = i2s_spk.lock().unwrap();
-                let _ = drv.write_all(&silence, 5000);
+                let _ = i2s_tx.write_all(&silence, 5000);
             }
             thread::sleep(Duration::from_millis(5));
         }
@@ -267,7 +286,14 @@ fn main() -> anyhow::Result<()> {
 
     // ─── Main pipeline loop ────────────────────────────
     let led_main = led.clone();
+    let mut loop_count: u32 = 0;
     loop {
+        loop_count += 1;
+        if loop_count % 500 == 0 { // ~every 5 seconds
+            let state = pipeline.lock().unwrap().state();
+            log::info!("[DBG] up={}s state={:?} buf={}",
+                loop_count / 100, state, playback_buffer.available());
+        }
         // Check for STT events
         while let Ok(stt_event) = stt_rx.try_recv() {
             let pipe_event = match stt_event {
