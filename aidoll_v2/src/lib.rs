@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod buttons;
 pub mod config;
 pub mod conversation;
 pub mod llm;

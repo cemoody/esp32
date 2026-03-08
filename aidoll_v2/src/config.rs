@@ -10,6 +10,12 @@ pub struct Config {
     pub system_prompt: String,
     pub max_conversation_turns: usize,
     pub interrupt_peak_threshold: i16,
+    // TCA9555 IO expander button pins
+    pub key1_pin: u8,       // EXIO9 — Volume up
+    pub key2_pin: u8,       // EXIO10 — Mute toggle
+    pub key3_pin: u8,       // EXIO11 — Volume down
+    pub volume_step: u8,    // Volume change per press
+    pub initial_volume: u8, // Starting volume (0-100)
 }
 
 impl Config {
@@ -26,6 +32,11 @@ impl Config {
             system_prompt: String::new(),
             max_conversation_turns: 10,
             interrupt_peak_threshold: 5000,
+            key1_pin: 9,
+            key2_pin: 10,
+            key3_pin: 11,
+            volume_step: 10,
+            initial_volume: 70,
         }
     }
 }

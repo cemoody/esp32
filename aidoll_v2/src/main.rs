@@ -1,4 +1,5 @@
 mod audio;
+mod buttons;
 mod config;
 mod conversation;
 mod llm;
