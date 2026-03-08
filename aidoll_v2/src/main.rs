@@ -7,11 +7,11 @@ mod prompt;
 mod stt;
 mod tts;
 
-use esp_idf_svc::hal::prelude::Peripherals;
-use esp_idf_svc::log::EspLogger;
-
+#[cfg(feature = "esp32")]
 fn main() -> anyhow::Result<()> {
-    // Initialize ESP-IDF
+    use esp_idf_svc::hal::prelude::Peripherals;
+    use esp_idf_svc::log::EspLogger;
+
     esp_idf_svc::sys::link_patches();
     EspLogger::initialize_default();
 
@@ -21,8 +21,13 @@ fn main() -> anyhow::Result<()> {
 
     log::info!("aidoll_v2 initialized. TODO: wire up WiFi, audio, and pipeline.");
 
-    // Keep main alive
     loop {
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
+}
+
+#[cfg(not(feature = "esp32"))]
+fn main() {
+    println!("aidoll_v2 — run with --features esp32 for ESP32 target");
+    println!("Run `cargo test --no-default-features` to run tests on host.");
 }
